@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Home Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h1 { margin-bottom: 8px; font-size: 1.8rem; color: #e94560; }
+    #connection-status {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-bottom: 30px;
+    }
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      width: 100%;
+      max-width: 700px;
+    }
+    .card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid #0f3460;
+    }
+    .card h3 { margin-bottom: 12px; font-size: 1rem; color: #a8dadc; }
+    .status-dot {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #555;
+      margin-bottom: 14px;
+    }
+    .status-dot.on  { background: #4caf50; }
+    .status-dot.off { background: #e94560; }
+    button {
+      margin: 5px;
+      padding: 10px 22px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9rem;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    .btn-on  { background: #4caf50; color: #fff; }
+    .btn-off { background: #e94560; color: #fff; }
+  </style>
+</head>
+<body>
+
+  <h1>🏠 Smart Home Dashboard</h1>
+  <p id="connection-status">Connecting to broker...</p>
+
+  <div class="room-grid">
+    <!-- Living Room -->
+    <div class="card">
+      <h3>Living Room Light</h3>
+      <div class="status-dot" id="dot-living"></div><br/>
+      <button class="btn-on"  onclick="send('home/livingroom/light/set', 'ON')">ON</button>
+      <button class="btn-off" onclick="send('home/livingroom/light/set', 'OFF')">OFF</button>
+    </div>
+
+    <!-- Bedroom -->
+    <div class="card">
+      <h3>Bedroom Light</h3>
+      <div class="status-dot" id="dot-bedroom"></div><br/>
+      <button class="btn-on"  onclick="send('home/bedroom/light/set', 'ON')">ON</button>
+      <button class="btn-off" onclick="send('home/bedroom/light/set', 'OFF')">OFF</button>
+    </div>
+
+    <!-- Kitchen -->
+    <div class="card">
+      <h3>Kitchen Light</h3>
+      <div class="status-dot" id="dot-kitchen"></div><br/>
+      <button class="btn-on"  onclick="send('home/kitchen/light/set', 'ON')">ON</button>
+      <button class="btn-off" onclick="send('home/kitchen/light/set', 'OFF')">OFF</button>
+    </div>
+  </div>
+
+  <script>
+    // ── MQTT WebSocket connection ─────────────────────
+    const broker = 'wss://broker.hivemq.com:8884/mqtt';
+    const client = mqtt.connect(broker, { clientId: 'Dashboard_' + Math.random().toString(16).substr(2,6) });
+
+    const statusEl = document.getElementById('connection-status');
+
+    // Topic → dot element ID mapping
+    const dotMap = {
+      'home/livingroom/light/status': 'dot-living',
+      'home/bedroom/light/status':    'dot-bedroom',
+      'home/kitchen/light/status':    'dot-kitchen',
+    };
+
+    client.on('connect', () => {
+      statusEl.textContent = '✅ Connected to broker';
+      Object.keys(dotMap).forEach(topic => client.subscribe(topic));
+    });
+
+    client.on('error', (err) => {
+      statusEl.textContent = '❌ Connection failed: ' + err.message;
+    });
+
+    // Update indicator dot on status message
+    client.on('message', (topic, message) => {
+      const dotId = dotMap[topic];
+      if (!dotId) return;
+      const dot = document.getElementById(dotId);
+      const state = message.toString();
+      dot.className = 'status-dot ' + (state === 'ON' ? 'on' : 'off');
+    });
+
+    // Publish command to device
+    function send(topic, state) {
+      client.publish(topic, state);
+    }
+  </script>
+
+</body>
+</html>
